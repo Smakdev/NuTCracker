@@ -1,0 +1,43 @@
+Lego Hobbit: Gen 1
+Lego Batman 3: GEN 1
+Lego Marvel Avengers: GEN 1
+Lego Jurrasic World: Gen 2
+Lego Dimensions: GEN 2 (probably 2)
+Lego Star Wars The Force Awakens: GEN 2
+Lego Worlds: GEN 2
+The Ninjago Lego Movie: GEN 2
+Lego Marvel Superheroes 2: GEN 2
+Lego DC Super-Villains: GEN 2
+The Lego Movie 2 Videogame: Gen 2 (unconfirmed)
+Lego Star Wars The Skywalker Saga: Gen 2 (skip RESH)
+
+#define nu(datatype) be u(datatype)
+
+GEN 1 {
+    u128 checksum;
+    u32 SomeData;
+    u8 strSize;
+    char fileName[strSize];
+    u8 Attribute;
+};
+
+GEN 2 {
+u128 checksum;
+    if (checksum)
+    {
+        u32 SomeData;
+        u8 strSize;
+        char fileName[strSize];
+        u8 Attribute;
+        nu32 a;
+        u32 b;
+    }
+    else
+    {
+        nu16 strSize;
+        char fileName[strSize];
+        nu32 attributes;
+        nu32 SomeData;
+        nu32 SomeData2;
+    }
+};
