@@ -3,6 +3,7 @@
 #include<fstream>
 #include<iostream>
 #include<vector>
+#include<algorithm>
 #include"Dir.h"
 #include"DDSHelper.h"
 #include"NXG_TEXTURES.h"
@@ -123,7 +124,6 @@ int main(int argc, char** argv)
 		resDir = GetFolder(srcFile) + GetFileName(srcFile) + '/';
 		CreateDir(GetFolder(srcFile), GetFileName(srcFile));
 	}
-
 	// READ NXG_TEXTURES HEADERS
 	std::ifstream NXGStream(srcFile.c_str(), std::ios::binary | std::ios::ate);
 	if (!NXGStream.is_open())
@@ -136,29 +136,33 @@ int main(int argc, char** argv)
 
 
 	NXG_TEXTURES file = NXG_TEXTURES(NXGStream);
-
 	NXGStream.close();
 
 
-	std::vector<NuTPath> Paths = file.files.getPaths();
+	std::vector<std::string> Paths = file.Paths;
+
+
+	for (std::string& path : Paths)
+	{
+		std::replace(path.begin(), path.end(), '\\', '/');
+	}
 
 	int dupe = 1;
 	// HANDLE LIGHTMAPS
 	for (int i = 0; i < Paths.size(); i++)
 	{
-		if (Paths[i].Path == "Lightmap")
+		if (Paths[i] == "Lightmap")
 		{
-			Paths[i].Path = "LM/Lightmap/Lightmap" + std::to_string(dupe++) + ".dds";
+			Paths[i] = "LM/Lightmaps/Lightmap" + std::to_string(dupe++) + ".dds";
 		}
-		//printf("%s/%s\n", getFileFolder(Paths[i].Path).c_str(), getFileName(Paths[i].Path).c_str());
 	}
 
 	// CREATE SUBFOLDERS
 
 	for (int i = 0; i < Paths.size(); i++)
 	{
-		std::string dirName = resDir + getFileFolder(Paths[i].Path);
-		CreateDir(resDir, getFileFolder(Paths[i].Path));
+		std::string dirName = resDir + getFileFolder(Paths[i]);
+		CreateDir(resDir, getFileFolder(Paths[i]));
 	}
 
 	// READ DDS FILES
@@ -178,8 +182,7 @@ int main(int argc, char** argv)
 	uint64_t FileSize = DDSStream.tellg();
 	DDSStream.seekg(0, DDSStream.beg);
 
-	int dupeCount = 0;
-	int position = 0 ;
+	int position = 0;
 	uint32_t ResCount = 0;
 	uint32_t NavByte = 0;
 	std::string filename;
@@ -199,7 +202,7 @@ int main(int argc, char** argv)
 			if (good)
 			{
 				ResCount++;
-				filename = resDir + getFileFolder(Paths[ResCount - 1].Path) + '/' + getFileName(Paths[ResCount - 1].Path) + ".dds";
+				filename = resDir + getFileFolder(Paths[ResCount - 1]) + '/' + getFileName(Paths[ResCount - 1]) + ".dds";
 
 				uint64_t size = ((uint64_t)DDSStream.tellg()) - i;
 				DDSStream.seekg(i, DDSStream.beg);
@@ -217,7 +220,7 @@ int main(int argc, char** argv)
 				delete[] buffer;
 				printf("%d  %016x ", ResCount, position);
 				printf("%-*lu", 11, (unsigned long)size);
-				printf("%s%s.dds  ", getFileFolder(Paths[ResCount - 1].Path).c_str(),GetFileName(Paths[ResCount - 1].Path).c_str());
+				printf("%s%s.dds  ", getFileFolder(Paths[ResCount - 1]).c_str(), GetFileName(Paths[ResCount - 1]).c_str());
 				printf("DXT%c\n", gFCC);
 				i = DDSStream.tellg();
 				i--;
@@ -230,8 +233,6 @@ int main(int argc, char** argv)
 	}
 	DDSStream.close();
 	printf("\n---------------------------------------------------\n");
-	printf("Parent File: %s\n", file.resourceHeader.getParent());
-	printf("Conversion Date: %s\n", file.text.getText());
 	if (ResCount)
 	{
 		printf("Found %d DDS files\n", ResCount);
@@ -248,4 +249,5 @@ int main(int argc, char** argv)
 	}
 	std::cin.get();
 	return 0;
+
 }
