@@ -1,78 +1,9 @@
 #pragma once
 
-typedef uint32_t nu32;
-
-enum NuTAttribute : nu32
-{
-    diffuse = 0x000,
-    normalMap = 0x100,
-    Lightmap = 0x400,
-    Skydome = 0x700,
-    Cubemap = 0x600,
-    BRDF = 0x0C00,
-    unk1 = 0x10000,
-    unk2 = 0x20000
-};
-
-std::string toStr(NuTAttribute attribute)
-{
-    switch(attribute)
-    {
-        case NuTAttribute::diffuse:
-            return "Diffuse";
-            break;
-        case NuTAttribute::normalMap:
-            return "NormalMap";
-            break;
-        case NuTAttribute::Lightmap:
-            return "Lightmap";
-            break;
-        case NuTAttribute::Skydome:
-            return "Skydome";
-            break;
-        case NuTAttribute::Cubemap:
-            return "Cubemap";
-            break;
-        case NuTAttribute::BRDF:
-            return "BRDF";
-            break;
-        case NuTAttribute::unk1:
-            return "Unknown";
-            break;
-        case NuTAttribute::unk2:
-            return "Unknown";
-            break;
-        default:
-            return "Undocumented";
-            break;
-    }
-}
-
-struct NuTPath
-{
-    std::string Checksum;
-    std::string Path;
-    NuTAttribute attribute;
-
-    NuTPath(char ichecksum[], char iPath[], int PathSize, NuTAttribute iattribute)
-    {
-        Checksum = ichecksum;
-        for (int i = 0; i < PathSize; i++)
-		{
-			if (iPath[i] == '\\')
-			{
-				iPath[i] = '/';
-			}
-		}
-        Path = iPath;
-        attribute = iattribute;
-    }
-};
-
 std::string getFileName(std::string cur)
 {
-	cur = cur.substr(cur.find_last_of('/') + 1);
-	return cur.substr(0, cur.find_last_of('.'));
+    cur = cur.substr(cur.find_last_of('/') + 1);
+    return cur.substr(0, cur.find_last_of('.'));
 }
 
 std::string getFileFolder(std::string cur)
@@ -84,7 +15,7 @@ std::string getFileFolder(std::string cur)
         return cur;
     }
 
-    for (int i = cur.size(); i --> 0;)
+    for (int i = cur.size(); i-- > 0;)
     {
         if (cur[i] == '/')
         {
@@ -101,154 +32,218 @@ std::string getFileFolder(std::string cur)
     return cur.substr(0, cur.find_last_of('/'));
 }
 
-struct nuVec
+int readNu32(std::istream& stream)
 {
-    char identifier[4];
-    nu32 size;
-};
-
-nu32 getNu32(std::istream& stream)
-{
-    char memblock[4] = {0};
+    char memblock[4] = { 0 };
     stream.read(memblock, 4);
     return (((uint8_t)memblock[0]) << 24) | (((uint8_t)memblock[1]) << 16) | (((uint8_t)memblock[2]) << 8) | (((uint8_t)memblock[3]) << 0);
 };
 
-class RESH
+std::string readNXGFile(std::istream& stream)
 {
-private:
-	nu32 headersize;
-    char FourCC[0xFF] = { 0 };
-    nu32 Version = 0;
-    uint32_t someData2 = 0;
-    nuVec Vector =  { };
-    char SomeData3[0x14] = { 0 };
-    char strSize = 0;
-    char Parent[256] = { 0 };
-    uint16_t someData4 = 0;
+    int stringSize = 0;
+    char path[256] = { 0 };
+    stream.ignore(16);
+    stringSize = readNu32(stream);
+    stream.read(path, stringSize);
+    stream.ignore(4);
+    return std::string(path);
+}
 
-public:
-
-    void readRESH(std::istream& stream)
-	{
-		headersize = getNu32(stream);
-		stream.read(FourCC, 0x0C);
-		Version = getNu32(stream);
-		stream.read((char*)&someData2, 4);
-		stream.read((char*)&Vector, sizeof(Vector));
-		stream.read((char*)SomeData3, 0x14);
-		stream.read(&strSize, 1);
-		stream.read((char*)Parent, (unsigned char)strSize);
-		stream.read((char*)&someData4, 2);
-	};
-    RESH() = default;
-	RESH(std::istream& stream)
-	{
-		readRESH(stream);
-	}
-
-	char* getParent()
-	{
-		return Parent;
-	}
-};
-
-class TSXT
+std::string readDX11FileG1(std::istream& stream)
 {
-private:
-	char CCID = 0;
-	char FourCC[0xFF] = { 0 };
-	nu32 nuEntries = 0;
-	char TSXTID[5] = { 0 };
-	nu32 nuTSXTC = 0;
-	nu32 textSize = 0;
-    char convTEXT[256] = { 0 };
+    char stringSize = 0;
+    char path[256] = { 0 };
+    stream.ignore(20);
+    stream.read(&stringSize, 1);
+    stream.read(path, stringSize);
+    stream.ignore(1);
+    return std::string(path);
+}
 
-public:
-	void ReadTSXT(std::istream& stream)
-	{
-		stream.read(&CCID, 1);
-		stream.read(FourCC, 0x8);
-		nuEntries = getNu32(stream);
-		stream.read(TSXTID, 4);
-		nuTSXTC = getNu32(stream);
-		if (nuTSXTC)
-		{
-			textSize = getNu32(stream);
-			stream.read(convTEXT, (unsigned char)textSize);
-		}
-	}
-
-    TSXT() = default;
-	TSXT(std::istream& stream)
-	{
-		ReadTSXT(stream);
-	}
-
-	char* getText()
-	{
-        if (nuEntries)
-        {
-            return convTEXT;
-        }
-        return nullptr;
-	}
-};
-
-
-class Files
+std::string readDX11FileG2(std::istream& stream)
 {
-private:
+    char checksum[16] = { 0 };
+    char stringSize = 0;
+    char path[256] = { 0 };
 
-    char vectorIdentifier[4] = { 0 };
-    nu32 vectorSize = 0;
-
-    char Checksum[16]; // 128 bit checksum
-    nu32 PathSize;
-    char Path[256] = { 0 };
-    NuTAttribute Attribute;
-    std::vector<NuTPath> FilePaths = std::vector<NuTPath>();
-
-
-public:
-
-    void readFiles(std::istream& stream)
+    stream.read(checksum, 16);
+    if (checksum[1] != 0)
     {
-        stream.read(vectorIdentifier, 4);
-        vectorSize = getNu32(stream);
-        for (int i = 0; i < vectorSize; i++)
-        {
-            stream.read(Checksum, 16);
-            PathSize = getNu32(stream);
-            stream.read(Path, PathSize);
-            Attribute = (NuTAttribute)getNu32(stream);
-            FilePaths.push_back(NuTPath(Checksum, Path, PathSize, Attribute));
-        }
-
-    };
-    Files() = default;
-    Files(std::istream& stream)
-    {
-        readFiles(stream);
-    };
-
-    std::vector<NuTPath> getPaths()
-    {
-        return FilePaths;
+        stream.ignore(4);
+        stream.read(&stringSize, 1);
+        stream.read(path, stringSize);
+        stream.ignore(1);
     }
+    else
+    {
+        stream.ignore(1);
+        stream.read(&stringSize, 1);
+        stream.ignore(stringSize);
+        stream.ignore(4);
+    }
+    stream.ignore(8);
+    return std::string(path);
+}
+
+struct TSXT
+{
+    char FourCC[5] = { 0 };
+    int Version = 0;
+    char ConversionDate[256] = { 0 };
+
+    char Vector[5] = { 0 };
+    int fileCount = 0;
+
+    TSXT(std::istream& stream)
+    {
+        stream.read(FourCC, 4);
+        Version = readNu32(stream);
+        if (Version)
+        {
+            int strSize = readNu32(stream);
+            stream.read(ConversionDate, strSize);
+        }
+        stream.read(Vector, 4);
+        fileCount = readNu32(stream);
+    };
+    TSXT() = default;
 };
 
 struct NXG_TEXTURES
 {
-    RESH resourceHeader;
-    TSXT text;
-    Files files;
+private:
+    int RESHSize = 0;
+    int TSXTSize = 0;
+    char fourCC[8] = { 0 };
+    int TSXTCount = 0;
+public:
+    TSXT Textures;
+    std::vector<std::string> Paths = std::vector<std::string>();
+
     NXG_TEXTURES(std::istream& stream)
     {
-        // READ RESOURCE HEADER
-        resourceHeader = RESH(stream);
-        stream.ignore(2);
-        text = TSXT(stream);
-        files = Files(stream);
+        RESHSize = readNu32(stream);
+        stream.ignore(RESHSize);
+        TSXTSize = readNu32(stream);
+        stream.read(fourCC, 8);
+        TSXTCount = readNu32(stream);
+        Textures = TSXT(stream);
+        printf("ConversionDate: %s\n", Textures.ConversionDate);
+        printf("%s\nFileCount: %d\n", Textures.Vector, Textures.fileCount);
+
+        if (Textures.Version == 0x01)
+        {
+            for (int i = 0; i < Textures.fileCount; i++)
+            {
+                Paths.push_back(readNXGFile(stream));
+            };
+        }
+
+        if (Textures.Version == 0x0C)
+        {
+            for (int i = 0; i < Textures.fileCount; i++)
+            {
+                Paths.push_back(readDX11FileG1(stream));
+            }
+        }
+
+        if (Textures.Version == 0x0E)
+        {
+            // SKIP LAST TWO DUMMY THINGS
+            for (int i = 0; i < Textures.fileCount; i++)
+            {
+                Paths.push_back(readDX11FileG2(stream));
+            }
+        }
+
+        printf("AAAA");
+
     }
 };
+
+/*
+ #pragma endian big
+
+struct NXGFile
+{
+    u128 Checksum;
+    u32 strSize;
+    char filePath[strSize];
+    u32 Type;
+}[[name(filePath)]];
+
+struct Gen1_DX11File
+{
+    u128 Checksum;
+    u32 someData;
+    u8 strSize;
+    char filePath[strSize];
+    u8 Attribute;
+}[[name(filePath)]];
+
+struct Gen2_DX11File
+{
+    u128 Checksum;
+    if (Checksum)
+    {
+        u32 someData;
+        u8 strSize;
+        char filePath[strSize];
+        u8 Attribute;
+        u32 someData2;
+        u32 someData3;
+    }
+    else
+    {
+        u16 strSize;
+        char filePath[strSize];
+        u32 someData;
+        u32 someData2;
+        u32 someData3;
+    }
+}[[name(filePath)]];
+
+struct TSXT
+{
+    char FourCC[4];
+    u32 Version;
+    if (Version)
+    {
+        u32 strSize;
+        char ConversionDate[strSize];
+    }
+
+    char VTOR[4];
+    u32 fileCount;
+
+    if (Version == 0x01)
+    {
+        NXGFile fileData[fileCount];
+    }
+    if (Version == 0x0C)
+    {
+        Gen1_DX11File fileData[fileCount];
+    }
+    if (Version == 0x0E)
+    {
+        Gen2_DX11File fileData[fileCount];
+    }
+}[[name(ConversionDate)]];
+
+
+struct NXG_TEXTURES
+{
+    u32 RESHSize[[hidden]];
+    padding[RESHSize];
+
+    // TXST
+    u32 StructSize;
+    char FourCC[8];
+    u32 Entries;
+
+    TSXT Textures[Entries];
+};
+
+be NXG_TEXTURES file @ 0x00;
+ */
