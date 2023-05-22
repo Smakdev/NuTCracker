@@ -25,7 +25,7 @@ bool ReadDDS(std::ifstream& stream)
 	{
 		//printf("DXT1");
 		gFCC = '1';
-		for (int i = 0; i < header.MipMapCount + 1; i++)
+		for (unsigned int i = 0; i < header.MipMapCount + 1; i++)
 		{
 			if (header.Width == 0 && header.Height != 0)
 				header.Width = 1;
@@ -51,7 +51,7 @@ bool ReadDDS(std::ifstream& stream)
 	{
 		//printf("DXT%c", );
 		gFCC = header.pf.FourCC >> 24 & 0xFF;
-		for (int i = 0; i < header.MipMapCount + 1; i++)
+		for (unsigned int i = 0; i < header.MipMapCount + 1; i++)
 		{
 			if (header.Width == 0 && header.Height != 0)
 				header.Width = 1;
@@ -71,7 +71,7 @@ bool ReadDDS(std::ifstream& stream)
 	}
 	else
 	{
-		printf("Unknown type %x\n", header.pf.FourCC);
+		printf("Unknown type %d @ %llx\n", header.pf.FourCC, (size_t)stream.tellg());
 		std::cin.get();
 		return false;
 	}
@@ -186,6 +186,8 @@ int main(int argc, char** argv)
 	uint32_t ResCount = 0;
 	uint32_t NavByte = 0;
 	std::string filename;
+
+	// HEADER BASED SYSTEM
 	for (uint64_t i = 0; i < FileSize; i++)
 	{
 		DDSStream.read((char*)&NavByte, 1);
@@ -199,9 +201,9 @@ int main(int argc, char** argv)
 			}
 			position = (unsigned long)DDSStream.tellg() - 4;
 			bool good = ReadDDS(DDSStream);
+			ResCount++;
 			if (good)
 			{
-				ResCount++;
 				filename = resDir + getFileFolder(Paths[ResCount - 1]) + '/' + getFileName(Paths[ResCount - 1]) + ".dds";
 
 				uint64_t size = ((uint64_t)DDSStream.tellg()) - i;
@@ -231,6 +233,7 @@ int main(int argc, char** argv)
 			}
 		}
 	}
+
 	DDSStream.close();
 	printf("\n---------------------------------------------------\n");
 	if (ResCount)

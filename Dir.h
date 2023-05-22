@@ -37,7 +37,7 @@ bool CreateDir(std::string basePath, std::string DirName)
 			int error = GetLastError();
 			if (error == 0xB7) // PATH EXISTS
 			{
-                return 1;
+                return true;
 			}
 			else
 			{
@@ -45,7 +45,7 @@ bool CreateDir(std::string basePath, std::string DirName)
 			}
 			printf("\nhttps://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes");
 			std::cin.get();
-			return -1;
+			return false;
 		}
 #endif // _WIN32
 

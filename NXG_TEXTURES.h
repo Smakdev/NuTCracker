@@ -8,14 +8,14 @@ std::string getFileName(std::string cur)
 
 std::string getFileFolder(std::string cur)
 {
-    int count = 0;
+    size_t count = 0;
 
     if (cur.find_first_of('/') == cur.npos)
     {
         return cur;
     }
 
-    for (int i = cur.size(); i-- > 0;)
+    for (size_t i = cur.size(); i --> 0;)
     {
         if (cur[i] == '/')
         {
@@ -41,7 +41,7 @@ int readNu32(std::istream& stream)
 
 std::string readNXGFile(std::istream& stream)
 {
-    int stringSize = 0;
+    unsigned int stringSize = 0;
     char path[256] = { 0 };
     stream.ignore(16);
     stringSize = readNu32(stream);
@@ -56,29 +56,45 @@ std::string readDX11FileG1(std::istream& stream)
     char path[256] = { 0 };
     stream.ignore(20);
     stream.read(&stringSize, 1);
-    stream.read(path, stringSize);
+    stream.read(path, (unsigned char) stringSize);
     stream.ignore(1);
     return std::string(path);
 }
 
+bool checkthesum(char* checksum)
+{
+    int count = 0;
+    for (int i = 0; i < 16; i++)
+    {
+        if (checksum[i] == 0)
+        {
+            count++;
+        }
+    }
+    if (count == 16)
+        return false;
+    
+    return true;
+};
+
 std::string readDX11FileG2(std::istream& stream)
 {
     char checksum[16] = { 0 };
-    char stringSize = 0;
+    uint8_t stringSize = 0;
     char path[256] = { 0 };
 
     stream.read(checksum, 16);
-    if (checksum[1] != 0)
+    if (checkthesum(checksum))
     {
         stream.ignore(4);
-        stream.read(&stringSize, 1);
+        stream.read((char*)& stringSize, 1);
         stream.read(path, stringSize);
         stream.ignore(1);
     }
     else
     {
         stream.ignore(1);
-        stream.read(&stringSize, 1);
+        stream.read((char*)& stringSize, 1);
         stream.ignore(stringSize);
         stream.ignore(4);
     }
@@ -153,7 +169,11 @@ public:
             // SKIP LAST TWO DUMMY THINGS
             for (int i = 0; i < Textures.fileCount; i++)
             {
-                Paths.push_back(readDX11FileG2(stream));
+                std::string path = readDX11FileG2(stream);
+                if (!path.empty())
+                {
+                    Paths.push_back(path);
+                }
             }
         }
 
