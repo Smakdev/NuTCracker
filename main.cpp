@@ -3,12 +3,14 @@
 #include<fstream>
 #include<iostream>
 #include<vector>
+#include<algorithm>
 #include"Dir.h"
 #include"DDSHelper.h"
 #include"NXG_TEXTURES.h"
 
 
 char gFCC;
+
 
 bool ReadDDS(std::ifstream& stream)
 {
@@ -24,7 +26,7 @@ bool ReadDDS(std::ifstream& stream)
 	{
 		//printf("DXT1");
 		gFCC = '1';
-		for (int i = 0; i < header.MipMapCount + 1; i++)
+		for (unsigned int i = 0; i < header.MipMapCount + 1; i++)
 		{
 			if (header.Width == 0 && header.Height != 0)
 				header.Width = 1;
@@ -50,7 +52,7 @@ bool ReadDDS(std::ifstream& stream)
 	{
 		//printf("DXT%c", );
 		gFCC = header.pf.FourCC >> 24 & 0xFF;
-		for (int i = 0; i < header.MipMapCount + 1; i++)
+		for (unsigned int i = 0; i < header.MipMapCount + 1; i++)
 		{
 			if (header.Width == 0 && header.Height != 0)
 				header.Width = 1;
@@ -70,7 +72,7 @@ bool ReadDDS(std::ifstream& stream)
 	}
 	else
 	{
-		printf("Unknown type %x\n", header.pf.FourCC);
+		printf("Unknown type %d @ %llx\n", header.pf.FourCC, (size_t)stream.tellg());
 		std::cin.get();
 		return false;
 	}
@@ -123,7 +125,6 @@ int main(int argc, char** argv)
 		resDir = GetFolder(srcFile) + GetFileName(srcFile) + '/';
 		CreateDir(GetFolder(srcFile), GetFileName(srcFile));
 	}
-
 	// READ NXG_TEXTURES HEADERS
 	std::ifstream NXGStream(srcFile.c_str(), std::ios::binary | std::ios::ate);
 	if (!NXGStream.is_open())
@@ -132,41 +133,46 @@ int main(int argc, char** argv)
 		std::cin.get();
 		return 1;
 	}
+	uint64_t FileSize = NXGStream.tellg();
 	NXGStream.seekg(0, NXGStream.beg);
 
 
 	NXG_TEXTURES file = NXG_TEXTURES(NXGStream);
 
-	NXGStream.close();
 
-
-	std::vector<NuTPath> Paths = file.files.getPaths();
+	std::vector<std::string> Paths = file.Paths;
 
 	int dupe = 1;
 	// HANDLE LIGHTMAPS
-	for (int i = 0; i < Paths.size(); i++)
+	for (std::string& Path : Paths)
 	{
-		if (Paths[i].Path == "Lightmap")
+		if (Path != "" && Path.find(".") == std::string::npos)
 		{
-			Paths[i].Path = "LM/Lightmap/Lightmap" + std::to_string(dupe++) + ".dds";
+			std::string temp = Path;
+			Path = "LM/" + temp + "s/" + temp + std::to_string(dupe++) + ".dds";
 		}
-		//printf("%s/%s\n", getFileFolder(Paths[i].Path).c_str(), getFileName(Paths[i].Path).c_str());
 	}
 
 	// CREATE SUBFOLDERS
 
 	for (int i = 0; i < Paths.size(); i++)
 	{
-		std::string dirName = resDir + getFileFolder(Paths[i].Path);
-		CreateDir(resDir, getFileFolder(Paths[i].Path));
+		CreateDir(resDir, getFileFolder(Paths[i]));
 	}
 
 	// READ DDS FILES
 	printf("\nDestination: %s\n", resDir.c_str());
 	printf("Source: %s\n\n", srcFile.c_str());
-	printf("  Offset           Size          Name        FourCC\n");
+	printf("  Offset           Size          Name\n");
 	printf("---------------------------------------------------\n");
 
+	int position = 0;
+	uint32_t ResCount = 0;
+	uint32_t NavByte = 0;
+	std::string filename;
+	std::ofstream OStream;
+	// HEADER BASED SYSTEM
+	/*
 	std::ifstream DDSStream(srcFile.c_str(), std::ios::binary | std::ios::ate);
 	if (!DDSStream.is_open())
 	{
@@ -177,12 +183,6 @@ int main(int argc, char** argv)
 
 	uint64_t FileSize = DDSStream.tellg();
 	DDSStream.seekg(0, DDSStream.beg);
-
-	int dupeCount = 0;
-	int position = 0 ;
-	uint32_t ResCount = 0;
-	uint32_t NavByte = 0;
-	std::string filename;
 	for (uint64_t i = 0; i < FileSize; i++)
 	{
 		DDSStream.read((char*)&NavByte, 1);
@@ -196,10 +196,10 @@ int main(int argc, char** argv)
 			}
 			position = (unsigned long)DDSStream.tellg() - 4;
 			bool good = ReadDDS(DDSStream);
+			ResCount++;
 			if (good)
 			{
-				ResCount++;
-				filename = resDir + getFileFolder(Paths[ResCount - 1].Path) + '/' + getFileName(Paths[ResCount - 1].Path) + ".dds";
+				filename = resDir + getFileFolder(Paths[ResCount - 1]) + '/' + getFileName(Paths[ResCount - 1]) + ".dds";
 
 				uint64_t size = ((uint64_t)DDSStream.tellg()) - i;
 				DDSStream.seekg(i, DDSStream.beg);
@@ -217,24 +217,63 @@ int main(int argc, char** argv)
 				delete[] buffer;
 				printf("%d  %016x ", ResCount, position);
 				printf("%-*lu", 11, (unsigned long)size);
-				printf("%s%s.dds  ", getFileFolder(Paths[ResCount - 1].Path).c_str(),GetFileName(Paths[ResCount - 1].Path).c_str());
+				printf("%s%s.dds  ", getFileFolder(Paths[ResCount - 1]).c_str(), GetFileName(Paths[ResCount - 1]).c_str());
 				printf("DXT%c\n", gFCC);
 				i = DDSStream.tellg();
 				i--;
 			}
-			else
-			{
-				DDSStream.seekg(i + 1, DDSStream.beg);
-			}
 		}
 	}
-	DDSStream.close();
+	*/
+	bool reading = false;
+	uint64_t currentInt = 0;
+	size_t startPos = 0;
+	while (NXGStream.tellg() != FileSize)
+	{
+		NXGStream.read((char*)&currentInt, 8);
+		if (currentInt == 533118272580)
+		{
+			if (OStream.is_open())
+			{
+				OStream.close();
+				printf("%-*d  %016x ", 6, ResCount, startPos);
+				printf("%-*lu", 11, (unsigned long)NXGStream.tellg() - startPos);
+				printf("%s%s.dds  \n", getFileFolder(Paths[ResCount - 1]).c_str(), GetFileName(Paths[ResCount - 1]).c_str());
+			}
+			ResCount++;
+			if (Paths.size() >= ResCount)
+			{
+				filename = resDir + getFileFolder(Paths[ResCount - 1]) + '/' + getFileName(Paths[ResCount - 1]) + ".dds";
+			}
+			else
+			{
+				filename = resDir + std::to_string(ResCount) + ".dds";
+			}
+			OStream = std::ofstream(filename.c_str(), std::ios::binary);
+			if (!OStream.is_open())
+			{
+				printf("\nCould not write to %s", filename.c_str());
+				std::cin.get();
+				return -1;
+			}
+			startPos = NXGStream.tellg();
+
+			OStream.write((char*)&currentInt, 8);
+			continue;
+		}
+		if (OStream.is_open())
+			OStream.write((char*)&currentInt, 8);
+	}
+	// PRINT LAST FILE
+	printf("%-*d  %016x ", 6, ResCount, startPos);
+	printf("%-*lu", 11, (unsigned long)NXGStream.tellg() - startPos);
+	printf("%s%s.dds  \n", getFileFolder(Paths[ResCount - 1]).c_str(), GetFileName(Paths[ResCount - 1]).c_str());
+	NXGStream.close();
+	OStream.close();
 	printf("\n---------------------------------------------------\n");
-	printf("Parent File: %s\n", file.resourceHeader.getParent());
-	printf("Conversion Date: %s\n", file.text.getText());
 	if (ResCount)
 	{
-		printf("Found %d DDS files\n", ResCount);
+		printf("Found %d/%d DDS files.\n", ResCount, (unsigned int)file.Paths.size());
 	}
 	else
 	{
@@ -248,4 +287,5 @@ int main(int argc, char** argv)
 	}
 	std::cin.get();
 	return 0;
+
 }
